@@ -1,0 +1,24 @@
+# Segredos — NUNCA suba estes arquivos!
+.env
+token.json
+google_credentials.json
+
+# Imagens temporárias e logs
+temp_images/
+*.log
+
+# Ambiente virtual Python
+venv/
+
+# Posts processados (optional: comentar se quiser versionar)
+processed_posts.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Windows
+Thumbs.db
+desktop.ini
