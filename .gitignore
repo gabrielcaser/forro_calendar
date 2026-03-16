@@ -3,15 +3,17 @@
 token.json
 google_credentials.json
 
-# Imagens temporárias e logs
-temp_images/
-*.log
+# Sessão do Instagram
+instagram_session-*
+
+# Dados gerados em runtime
+logs/
+data/temp_images/
+data/processed_posts.json
+data/calendar_id.txt
 
 # Ambiente virtual Python
 venv/
-
-# Posts processados (optional: comentar se quiser versionar)
-processed_posts.json
 
 # Python cache
 __pycache__/
