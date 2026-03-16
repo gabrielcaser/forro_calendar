@@ -8,6 +8,7 @@ Run every Tuesday at 8am via Windows Task Scheduler (see README.md).
 """
 
 import logging
+import sys
 
 # ── Logging must be configured before the src modules are used ────────────────
 from src.config import LOGS_DIR
@@ -32,9 +33,9 @@ from src.utils         import load_processed, mark_processed
 from src.vision        import extract_events_from_images
 
 
-def main() -> None:
+def main(auto: bool = False) -> None:
     log.info("=" * 60)
-    log.info("Forró Calendar Automation — Iniciando")
+    log.info("Forró Calendar Automation — Iniciando%s", " [AUTO]" if auto else "")
     log.info("=" * 60)
 
     # 1. Busca o post no Instagram
@@ -45,6 +46,9 @@ def main() -> None:
 
     # 2. Avisa se já foi processado, mas deixa o usuário continuar
     if post["shortcode"] in load_processed():
+        if auto:
+            log.info(f"Post {post['shortcode']} já foi processado. Encerrando (modo automático).")
+            return
         resp = input(f"Post {post['shortcode']} já foi processado anteriormente. Continuar mesmo assim? [s/N] ").strip().lower()
         if resp != "s":
             log.info("Execução cancelada pelo usuário.")
@@ -53,6 +57,12 @@ def main() -> None:
     # 3. Verifica se já existe Excel de hoje
     today_excel = get_excel_path_for_today()
     if today_excel.exists():
+        if auto:
+            log.info("Excel de hoje já existe. Usando existente (modo automático).")
+            events = load_events_from_excel(today_excel)
+            log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
+            _criar_calendar(post, events)
+            return
         resposta = input(f"Excel de hoje já existe ({today_excel.name}). Extrair novamente e substituir? [s/N] ").strip().lower()
         if resposta != "s":
             log.info("Extração pulada. Usando Excel existente.")
@@ -80,7 +90,10 @@ def main() -> None:
         log.info(f"Agenda exportada: {excel_path.name}")
 
     # 7. Adiciona ao Google Calendar
-    _pedir_calendar(post, events)
+    if auto:
+        _criar_calendar(post, events)
+    else:
+        _pedir_calendar(post, events)
 
     # 8. Limpa imagens temporárias
     for p in images:
@@ -89,6 +102,18 @@ def main() -> None:
         TEMP_DIR.rmdir()
 
     log.info("Concluído!")
+
+
+def _criar_calendar(post: dict, events: list[dict]) -> None:
+    """Cria eventos no Google Calendar sem perguntar (modo automático)."""
+    if not events:
+        log.warning("Nenhum evento disponível para o Calendar.")
+        return
+    calendar_svc = get_calendar_service()
+    calendar_id  = get_or_create_forro_calendar(calendar_svc)
+    added = sum(add_event(calendar_svc, calendar_id, ev) for ev in events)
+    log.info(f"Eventos adicionados ao calendário: {added}/{len(events)}")
+    mark_processed(post["shortcode"])
 
 
 def _pedir_calendar(post: dict, events: list[dict]) -> None:
@@ -101,13 +126,10 @@ def _pedir_calendar(post: dict, events: list[dict]) -> None:
         log.info("Criação de eventos no Calendar pulada pelo usuário.")
         mark_processed(post["shortcode"])
         return
-    calendar_svc = get_calendar_service()
-    calendar_id  = get_or_create_forro_calendar(calendar_svc)
-    added = sum(add_event(calendar_svc, calendar_id, ev) for ev in events)
-    log.info(f"Eventos adicionados ao calendário: {added}/{len(events)}")
-    mark_processed(post["shortcode"])
+    _criar_calendar(post, events)
 
 
 if __name__ == "__main__":
-    main()
+    auto = "--auto" in sys.argv
+    main(auto=auto)
 
