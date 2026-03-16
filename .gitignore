@@ -6,6 +6,11 @@ google_credentials.json
 # Sessão do Instagram
 instagram_session-*
 
+# Imagens
+*.png
+*.jpg
+*.jpeg
+
 # Dados gerados em runtime
 logs/
 data/temp_images/
