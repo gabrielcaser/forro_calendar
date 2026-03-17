@@ -107,7 +107,7 @@ def export_to_excel(events: list[dict]) -> Path:
             ev.get("time_end") or _end_time(start),
             ev.get("location", ""),
             ev.get("description", ""),
-            ev.get("price", ""),
+            ev.get("price") or "R$??",
         ]
 
         for col, val in enumerate(row_data, start=1):

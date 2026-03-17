@@ -43,24 +43,33 @@ def main(auto: bool = False) -> None:
     post = find_forro_post()
     today_excel = get_excel_path_for_today()
 
-    if not post:
-        log.warning("Nenhum post encontrado com a palavra-chave.")
-        if today_excel.exists():
-            events = load_events_from_excel(today_excel)
-            log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
-            if auto:
-                _criar_calendar(None, events)
-            else:
-                _pedir_calendar(None, events)
+    if auto:
+        if not post:
+            log.warning("Nenhum post encontrado com a palavra-chave. Encerrando (modo automático).")
             return
-        log.error("Não há post e não há Excel para extrair. Encerrando.")
-        return
+    else:
+        if today_excel.exists():
+            choice = input("Escolha: [1] processar post, [2] usar Excel existente, [3] sair [1/2/3]: ").strip()
+            if choice == "2":
+                events = load_events_from_excel(today_excel)
+                log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
+                _pedir_calendar(None, events)
+                return
+            if choice == "3":
+                log.info("Execução cancelada pelo usuário.")
+                return
+        if not post:
+            log.warning("Nenhum post encontrado com a palavra-chave.")
+            if today_excel.exists():
+                events = load_events_from_excel(today_excel)
+                log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
+                _pedir_calendar(None, events)
+            else:
+                log.error("Não há post e não há Excel para extrair. Encerrando.")
+            return
 
     # 2. Avisa se já foi processado, mas deixa o usuário continuar
-    if post["shortcode"] in load_processed():
-        if auto:
-            log.info(f"Post {post['shortcode']} já foi processado. Encerrando (modo automático).")
-            return
+    if not auto and post and post.get("shortcode") in load_processed():
         resp = input(f"Post {post['shortcode']} já foi processado anteriormente. Continuar mesmo assim? [s/N] ").strip().lower()
         if resp != "s":
             log.info("Usuário optou por não seguir para baixar o post.")
@@ -72,13 +81,7 @@ def main(auto: bool = False) -> None:
             log.info("Nenhum Excel de hoje encontrado. Vou tentar continuar com o post mesmo assim.")
 
     # 3. Verifica se já existe Excel de hoje
-    if today_excel.exists():
-        if auto:
-            log.info("Excel de hoje já existe. Usando existente (modo automático).")
-            events = load_events_from_excel(today_excel)
-            log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
-            _criar_calendar(post, events)
-            return
+    if today_excel.exists() and not auto:
         resposta = input(f"Excel de hoje já existe ({today_excel.name}). Extrair novamente e substituir? [s/N] ").strip().lower()
         if resposta != "s":
             log.info("Extração pulada. Usando Excel existente.")

@@ -163,6 +163,14 @@ Excel de hoje já existe (forro_agenda_2026-03-15.xlsx). Extrair novamente e sub
 ### `run_excel_only.py`
 Extrai eventos e gera o Excel sem tocar no Google Calendar — útil para testes.
 
+### Novo menu interativo em `main.py`
+Ao executar `main.py` (modo não automático), se um Excel de hoje existir ele oferece opções:
+1. Processar o post (baixar imagens, extrair eventos, gerar Excel e criar calendário)
+2. Usar Excel existente e criar calendário
+3. Sair
+
+Quando o preço do ingresso não é extraído, o evento recebe `💵 Preço do ingresso: R$??` e o Excel registra `R$??`.
+
 ---
 
 ## Formato do Excel exportado
