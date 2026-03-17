@@ -9,6 +9,7 @@ Run every Tuesday at 8am via Windows Task Scheduler (see README.md).
 
 import logging
 import sys
+from typing import Optional
 
 # ── Logging must be configured before the src modules are used ────────────────
 from src.config import LOGS_DIR
@@ -40,8 +41,19 @@ def main(auto: bool = False) -> None:
 
     # 1. Busca o post no Instagram
     post = find_forro_post()
+    today_excel = get_excel_path_for_today()
+
     if not post:
-        log.warning("Nenhum post encontrado com a palavra-chave. Encerrando.")
+        log.warning("Nenhum post encontrado com a palavra-chave.")
+        if today_excel.exists():
+            events = load_events_from_excel(today_excel)
+            log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
+            if auto:
+                _criar_calendar(None, events)
+            else:
+                _pedir_calendar(None, events)
+            return
+        log.error("Não há post e não há Excel para extrair. Encerrando.")
         return
 
     # 2. Avisa se já foi processado, mas deixa o usuário continuar
@@ -51,11 +63,15 @@ def main(auto: bool = False) -> None:
             return
         resp = input(f"Post {post['shortcode']} já foi processado anteriormente. Continuar mesmo assim? [s/N] ").strip().lower()
         if resp != "s":
-            log.info("Execução cancelada pelo usuário.")
-            return
+            log.info("Usuário optou por não seguir para baixar o post.")
+            if today_excel.exists():
+                events = load_events_from_excel(today_excel)
+                log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
+                _pedir_calendar(post, events)
+                return
+            log.info("Nenhum Excel de hoje encontrado. Vou tentar continuar com o post mesmo assim.")
 
     # 3. Verifica se já existe Excel de hoje
-    today_excel = get_excel_path_for_today()
     if today_excel.exists():
         if auto:
             log.info("Excel de hoje já existe. Usando existente (modo automático).")
@@ -74,7 +90,16 @@ def main(auto: bool = False) -> None:
     # 4. Baixa imagens
     images = download_post_images(post)
     if not images:
-        log.error("Nenhuma imagem baixada. Encerrando.")
+        log.warning("Nenhuma imagem baixada.")
+        if today_excel.exists():
+            events = load_events_from_excel(today_excel)
+            log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
+            if auto:
+                _criar_calendar(post, events)
+            else:
+                _pedir_calendar(post, events)
+            return
+        log.error("Nenhum Excel de hoje para continuar. Encerrando.")
         return
 
     # 5. Extrai eventos via IA
@@ -104,7 +129,7 @@ def main(auto: bool = False) -> None:
     log.info("Concluído!")
 
 
-def _criar_calendar(post: dict, events: list[dict]) -> None:
+def _criar_calendar(post: Optional[dict], events: list[dict]) -> None:
     """Cria eventos no Google Calendar sem perguntar (modo automático)."""
     if not events:
         log.warning("Nenhum evento disponível para o Calendar.")
@@ -113,10 +138,11 @@ def _criar_calendar(post: dict, events: list[dict]) -> None:
     calendar_id  = get_or_create_forro_calendar(calendar_svc)
     added = sum(add_event(calendar_svc, calendar_id, ev) for ev in events)
     log.info(f"Eventos adicionados ao calendário: {added}/{len(events)}")
-    mark_processed(post["shortcode"])
+    if post is not None and "shortcode" in post:
+        mark_processed(post["shortcode"])
 
 
-def _pedir_calendar(post: dict, events: list[dict]) -> None:
+def _pedir_calendar(post: Optional[dict], events: list[dict]) -> None:
     """Pergunta ao usuário se deve criar os eventos no Google Calendar."""
     if not events:
         log.warning("Nenhum evento disponível para o Calendar.")
@@ -124,7 +150,8 @@ def _pedir_calendar(post: dict, events: list[dict]) -> None:
     criar = input(f"{len(events)} evento(s) disponível(is). Criar no Google Calendar? [s/N] ").strip().lower()
     if criar != "s":
         log.info("Criação de eventos no Calendar pulada pelo usuário.")
-        mark_processed(post["shortcode"])
+        if post is not None and "shortcode" in post:
+            mark_processed(post["shortcode"])
         return
     _criar_calendar(post, events)
 
