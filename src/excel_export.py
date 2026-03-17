@@ -13,8 +13,8 @@ _PURPLE      = "4B2E83"
 _LIGHT_LILAC = "EDE7F6"
 _WHITE       = "FFFFFF"
 
-_HEADERS = ["Dia",  "Data",  "Hora início", "Hora fim", "Local", "Descrição"]
-_WIDTHS  = [15,      13,      13,              13,          35,      55      ]
+_HEADERS = ["Dia",  "Data",  "Hora início", "Hora fim", "Local", "Descrição", "Preço"]
+_WIDTHS  = [15,      13,      13,              13,          35,      45,       15      ]
 
 _DAY_LABEL = {
     "sexta":   "Sexta-feira",
@@ -38,15 +38,15 @@ def _end_time(start) -> str:
 def load_events_from_excel(path: Path) -> list[dict]:
     """
     Read events back from an existing agenda Excel file.
-    Returns a list of dicts with keys: day_of_week, date, time, time_end, location, description.
+    Returns a list of dicts with keys: day_of_week, date, time, time_end, location, description, price.
     """
     _DAY_LABEL_REVERSE = {v: k for k, v in _DAY_LABEL.items()}
     wb = openpyxl.load_workbook(path)
     ws = wb.active
     events = []
     for row in ws.iter_rows(min_row=2, values_only=True):
-        cells = (row + (None,) * 6)[:6]
-        day_pt, date_val, time_start, time_end, location, description = cells
+        cells = (row + (None,) * 7)[:7]
+        day_pt, date_val, time_start, time_end, location, description, price = cells
         if not date_val or not location:  # skip empty / timestamp rows
             continue
         events.append({
@@ -56,6 +56,7 @@ def load_events_from_excel(path: Path) -> list[dict]:
             "time_end":    None if time_end   in (None, "—", "") else str(time_end),
             "location":    str(location),
             "description": str(description or ""),
+            "price":       str(price or ""),
         })
     return events
 
@@ -106,6 +107,7 @@ def export_to_excel(events: list[dict]) -> Path:
             ev.get("time_end") or _end_time(start),
             ev.get("location", ""),
             ev.get("description", ""),
+            ev.get("price", ""),
         ]
 
         for col, val in enumerate(row_data, start=1):

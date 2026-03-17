@@ -18,10 +18,11 @@ _PROMPT = (
     "  • date: data no formato 'DD/MM' ou 'DD/MM/YYYY'\n"
     "  • time: horário de início no formato 'HH:MM', ou null se não informado\n"
     "  • location: nome do local / clube\n"
-    "  • description: bandas, artistas ou detalhes adicionais (string vazia se nenhum)\n\n"
+    "  • description: bandas, artistas ou detalhes adicionais (string vazia se nenhum)\n"
+    "  • price: preço do ingresso (string com R$?? se nenhum)\n\n"
     "Responda SOMENTE com JSON válido, exatamente neste formato:\n"
     '{"events": [{"day_of_week": "...", "date": "DD/MM", "time": "HH:MM ou null", '
-    '"location": "...", "description": "..."}]}\n\n'
+    '"location": "...", "description": "...", "price": "..."}]}'
     'Se não houver eventos, retorne: {"events": []}'
 )
 

@@ -144,6 +144,8 @@ def add_event(service, calendar_id: str, event: dict) -> bool:
     desc_parts = []
     if event.get("description"):
         desc_parts.append(event["description"])
+    if event.get("price"):
+        desc_parts.append(f"💵 Preço do ingresso: {event['price']}")
     desc_parts.append(f"📸 Fonte: @{INSTAGRAM_PROFILE}")
 
     if event_exists(service, calendar_id, event_date, location):
