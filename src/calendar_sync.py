@@ -143,7 +143,7 @@ def add_event(service, calendar_id: str, event: dict) -> bool:
 
     desc_parts = []
     if event.get("description"):
-        desc_parts.append(event["description"])
+        desc_parts.append(f"🎸 {event['description']}")
     price = str(event.get("price") or "").strip()
     if price:
         desc_parts.append(f"💵 Preço do ingresso: {price}")

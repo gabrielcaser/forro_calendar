@@ -9,7 +9,11 @@ Run every Tuesday at 8am via Windows Task Scheduler (see README.md).
 
 import logging
 import sys
+import warnings
 from typing import Optional
+
+# Suppress FutureWarning messages about Python version
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 # ── Logging must be configured before the src modules are used ────────────────
 from src.config import LOGS_DIR
@@ -69,26 +73,32 @@ def main(auto: bool = False) -> None:
             return
 
     # 2. Avisa se já foi processado, mas deixa o usuário continuar
-    if not auto and post and post.get("shortcode") in load_processed():
-        resp = input(f"Post {post['shortcode']} já foi processado anteriormente. Continuar mesmo assim? [s/N] ").strip().lower()
-        if resp != "s":
-            log.info("Usuário optou por não seguir para baixar o post.")
-            if today_excel.exists():
+    if post and post.get("shortcode") in load_processed():
+        if auto:
+            log.info("Post já foi processado, mas continuando em modo automático.")
+        else:
+            resp = input(f"Post {post['shortcode']} já foi processado anteriormente. Continuar mesmo assim? [s/N] ").strip().lower()
+            if resp != "s":
+                log.info("Usuário optou por não seguir para baixar o post.")
+                if today_excel.exists():
+                    events = load_events_from_excel(today_excel)
+                    log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
+                    _pedir_calendar(post, events)
+                    return
+                log.info("Nenhum Excel de hoje encontrado. Vou tentar continuar com o post mesmo assim.")
+
+    # 3. Verifica se já existe Excel de hoje
+    if today_excel.exists():
+        if auto:
+            log.info("Excel de hoje já existe, mas extraindo novamente em modo automático.")
+        else:
+            resposta = input(f"Excel de hoje já existe ({today_excel.name}). Extrair novamente e substituir? [s/N] ").strip().lower()
+            if resposta != "s":
+                log.info("Extração pulada. Usando Excel existente.")
                 events = load_events_from_excel(today_excel)
                 log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
                 _pedir_calendar(post, events)
                 return
-            log.info("Nenhum Excel de hoje encontrado. Vou tentar continuar com o post mesmo assim.")
-
-    # 3. Verifica se já existe Excel de hoje
-    if today_excel.exists() and not auto:
-        resposta = input(f"Excel de hoje já existe ({today_excel.name}). Extrair novamente e substituir? [s/N] ").strip().lower()
-        if resposta != "s":
-            log.info("Extração pulada. Usando Excel existente.")
-            events = load_events_from_excel(today_excel)
-            log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
-            _pedir_calendar(post, events)
-            return
 
     # 4. Baixa imagens
     images = download_post_images(post)
@@ -118,10 +128,14 @@ def main(auto: bool = False) -> None:
         log.info(f"Agenda exportada: {excel_path.name}")
 
     # 7. Adiciona ao Google Calendar
-    if auto:
-        _criar_calendar(post, events)
-    else:
-        _pedir_calendar(post, events)
+    log.info(f"Iniciando criação de eventos no Google Calendar (auto={auto}, eventos={len(events)})")
+    try:
+        if auto:
+            _criar_calendar(post, events)
+        else:
+            _pedir_calendar(post, events)
+    except Exception as e:
+        log.error(f"Erro ao criar eventos no Calendar: {e}", exc_info=True)
 
     # 8. Limpa imagens temporárias
     for p in images:
