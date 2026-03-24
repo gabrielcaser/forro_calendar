@@ -1,12 +1,12 @@
 # 🎵 Forró Calendar Automation
 
-Automatiza a leitura da agenda de bailes de forró do Instagram **@lelele_godoy**, exporta para Excel e adiciona os eventos ao **Google Calendar** num calendário dedicado, toda terça-feira às 8h.
+Automatiza a leitura da agenda de bailes de forró do Instagram **@lelele_godoy**, exporta para Excel e adiciona os eventos ao **Google Calendar** num calendário dedicado, toda terça-feira às 18h.
 
 ---
 
 ## Como funciona
 
-1. O **Windows Task Scheduler** dispara o script toda **terça às 8h**
+1. O **Windows Task Scheduler** dispara o script toda **terça às 18h**
 2. O script busca no Instagram o post com a palavra-chave **"agenda de forró"**
 3. Baixa as fotos do post (cartazes com a agenda)
 4. Envia as fotos para o **GPT-4o Vision** que lê os eventos de todos os dias da semana
