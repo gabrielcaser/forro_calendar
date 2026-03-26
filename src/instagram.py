@@ -91,6 +91,12 @@ def find_forro_post(max_posts: int = 25) -> Optional[dict]:
 def download_post_images(post: dict) -> list[Path]:
     """Download all images from a post dict and return their local paths."""
     TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Clean up old images from previous runs
+    for old_file in TEMP_DIR.glob("*.jpg"):
+        old_file.unlink(missing_ok=True)
+    log.info("Imagens antigas removidas do diretório temporário.")
+
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "

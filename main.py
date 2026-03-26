@@ -10,6 +10,7 @@ Run every Tuesday at 8am via Windows Task Scheduler (see README.md).
 import logging
 import sys
 import warnings
+from datetime import datetime, timedelta
 from typing import Optional
 
 # Suppress FutureWarning messages about Python version
@@ -38,6 +39,41 @@ from src.utils         import load_processed, mark_processed
 from src.vision        import extract_events_from_images
 
 
+def _delete_current_week_events() -> int:
+    """Delete all events from the current week and return the count of deleted events."""
+    try:
+        calendar_svc = get_calendar_service()
+        calendar_id = get_or_create_forro_calendar(calendar_svc)
+
+        # Get current week (Monday to Sunday)
+        today = datetime.now().date()
+        monday = today - timedelta(days=today.weekday())
+        sunday = monday + timedelta(days=6)
+
+        time_min = f"{monday.isoformat()}T00:00:00-03:00"
+        time_max = f"{sunday.isoformat()}T23:59:59-03:00"
+
+        events = calendar_svc.events().list(
+            calendarId=calendar_id,
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True
+        ).execute().get('items', [])
+
+        deleted_count = 0
+        for event in events:
+            summary = event.get('summary', 'Unknown')
+            log.info(f"Deletando evento da semana: {summary}")
+            calendar_svc.events().delete(calendarId=calendar_id, eventId=event['id']).execute()
+            deleted_count += 1
+
+        log.info(f"Eventos deletados da semana atual: {deleted_count}")
+        return deleted_count
+    except Exception as e:
+        log.error(f"Erro ao deletar eventos da semana: {e}")
+        return 0
+
+
 def main(auto: bool = False) -> None:
     log.info("=" * 60)
     log.info("Forró Calendar Automation — Iniciando%s", " [AUTO]" if auto else "")
@@ -53,13 +89,18 @@ def main(auto: bool = False) -> None:
             return
     else:
         if today_excel.exists():
-            choice = input("Escolha: [1] processar post, [2] usar Excel existente, [3] sair [1/2/3]: ").strip()
+            choice = input("Escolha: [1] processar post, [2] usar Excel existente, [3] apagar eventos dessa semana e criar novamente, [4] sair [1/2/3/4]: ").strip()
             if choice == "2":
                 events = load_events_from_excel(today_excel)
                 log.info(f"{len(events)} evento(s) carregado(s) do Excel existente.")
                 _pedir_calendar(None, events)
                 return
             if choice == "3":
+                log.info("Apagando eventos da semana atual...")
+                deleted = _delete_current_week_events()
+                log.info(f"{deleted} evento(s) deletado(s). Continuando processamento...")
+                # Continue with normal processing
+            elif choice == "4":
                 log.info("Execução cancelada pelo usuário.")
                 return
         if not post:
@@ -137,11 +178,14 @@ def main(auto: bool = False) -> None:
     except Exception as e:
         log.error(f"Erro ao criar eventos no Calendar: {e}", exc_info=True)
 
-    # 8. Limpa imagens temporárias
-    for p in images:
-        p.unlink(missing_ok=True)
-    if TEMP_DIR.exists() and not any(TEMP_DIR.iterdir()):
-        TEMP_DIR.rmdir()
+    # 8. Limpa imagens temporárias (apenas em modo automático)
+    if auto:
+        for p in images:
+            p.unlink(missing_ok=True)
+        if TEMP_DIR.exists() and not any(TEMP_DIR.iterdir()):
+            TEMP_DIR.rmdir()
+    else:
+        log.info(f"Imagens mantidas em: {TEMP_DIR}")
 
     log.info("Concluído!")
 
@@ -151,6 +195,11 @@ def _criar_calendar(post: Optional[dict], events: list[dict]) -> None:
     if not events:
         log.warning("Nenhum evento disponível para o Calendar.")
         return
+
+    # Delete current week events first (automatic mode)
+    log.info("Apagando eventos da semana atual (modo automático)...")
+    deleted = _delete_current_week_events()
+
     calendar_svc = get_calendar_service()
     calendar_id  = get_or_create_forro_calendar(calendar_svc)
     added = sum(add_event(calendar_svc, calendar_id, ev) for ev in events)
