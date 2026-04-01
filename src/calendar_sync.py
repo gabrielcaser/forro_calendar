@@ -1,6 +1,7 @@
 import logging
 from datetime import date, datetime, timedelta
 
+from google.auth.exceptions import RefreshError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -18,18 +19,37 @@ def get_calendar_service():
     """Return an authenticated Google Calendar service, triggering OAuth if needed."""
     creds = None
     if TOKEN_FILE.exists():
-        creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
+        try:
+            creds = Credentials.from_authorized_user_file(str(TOKEN_FILE), SCOPES)
+        except Exception as exc:
+            log.warning("Falha ao carregar token do arquivo: %s. Reautenticando.", exc)
+            creds = None
+
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+            except RefreshError as exc:
+                log.warning(
+                    "Refresh do token falhou: %s. Removendo token antigo e reautenticando.",
+                    exc,
+                )
+                TOKEN_FILE.unlink(missing_ok=True)
+                creds = None
+        if not creds or not creds.valid:
             if not CREDENTIALS_FILE.exists():
                 raise FileNotFoundError(
                     f"Arquivo de credenciais não encontrado: {CREDENTIALS_FILE}\n"
                     "Siga as instruções do README.md para baixar o google_credentials.json."
                 )
-            flow = InstalledAppFlow.from_client_secrets_file(str(CREDENTIALS_FILE), SCOPES)
-            creds = flow.run_local_server(port=0)
+            flow = InstalledAppFlow.from_client_secrets_file(
+                str(CREDENTIALS_FILE), SCOPES
+            )
+            creds = flow.run_local_server(
+                port=0,
+                access_type="offline",
+                prompt="consent",
+            )
         TOKEN_FILE.write_text(creds.to_json(), encoding="utf-8")
     return build("calendar", "v3", credentials=creds)
 
